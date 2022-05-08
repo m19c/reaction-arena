@@ -1,0 +1,16 @@
+[package]
+name = "game"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.7.0", features = ["dynamic"]  }
+bevy-inspector-egui = "0.10.0"
+bevy_prototype_lyon = "0.5.0"
+rand = "*"
+
+[workspace]
+resolver = "2"
+
+[toolchain]
+channel = "nightly"

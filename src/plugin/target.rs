@@ -6,12 +6,23 @@ use super::state::GameState;
 
 #[derive(Default)]
 struct SpawnEvent;
+
 struct HitEvent(Target);
+
+#[derive(Default)]
+struct MissEvent;
 
 #[derive(Component, Clone)]
 struct Target(Instant);
 
 struct Frequency(Timer);
+
+#[derive(Default, Clone, Eq, PartialEq, Hash, Debug)]
+struct Stats {
+  pub hits: u32,
+  pub misses: u32,
+  pub total_elapsed: u128,
+}
 
 pub struct TargetPlugin;
 
@@ -20,30 +31,50 @@ impl Plugin for TargetPlugin {
     app
       .add_event::<SpawnEvent>()
       .add_event::<HitEvent>()
+      .add_event::<MissEvent>()
+      .insert_resource(Stats {
+        hits: 0,
+        misses: 0,
+        total_elapsed: 0,
+      })
       .insert_resource(Frequency(Timer::from_seconds(2.0, true)))
       .add_system_set(
         SystemSet::on_update(GameState::InGame)
           .with_system(spawn_listener)
           .with_system(spawn_event_emitter)
           .with_system(hit_event_emitter)
-          .with_system(hit_listener),
+          .with_system(hit_listener)
+          .with_system(miss_listener),
       );
   }
 }
 
-fn hit_listener(mut er: EventReader<HitEvent>, mut freq: ResMut<Frequency>) {
+// TODO: reset stats if a new game is started
+// TODO: remove every target from the world if the GameState is changed to Menu
+
+fn miss_listener(mut er: EventReader<MissEvent>, mut stats: ResMut<Stats>) {
+  for _ in er.iter() {
+    stats.misses += 1;
+
+    println!("missed, next stats: {:?}", stats);
+  }
+}
+
+fn hit_listener(
+  mut er: EventReader<HitEvent>,
+  mut freq: ResMut<Frequency>,
+  mut stats: ResMut<Stats>,
+) {
   for event in er.iter() {
-    println!(
-      "hitted after {} seconds",
-      event.0 .0.elapsed().as_secs_f32()
-    );
+    stats.hits += 1;
+    stats.total_elapsed += event.0 .0.elapsed().as_millis();
+
+    println!("hitted, next stats: {:?}", stats);
 
     // ensure that the timer is resetted so we've time to replace it.
     freq.0.reset();
 
     let next_duration = freq.0.duration().as_secs_f32() * 0.99;
-    println!("adjusting frequency to {}", next_duration);
-
     *freq = Frequency(Timer::from_seconds(next_duration, true));
   }
 }
@@ -54,7 +85,8 @@ fn hit_event_emitter(
   windows: ResMut<Windows>,
   q_target: Query<(&Target, &Sprite, &Transform, Entity)>,
   q_camera: Query<(&Camera, &GlobalTransform), With<crate::MainCamera>>,
-  mut emitter: EventWriter<HitEvent>,
+  mut hit_emitter: EventWriter<HitEvent>,
+  mut miss_emitter: EventWriter<MissEvent>,
 ) {
   if !mouse_input.just_pressed(MouseButton::Left) {
     return;
@@ -82,8 +114,10 @@ fn hit_event_emitter(
         && clicked_pos.y >= transform.translation.y - height / 2.0
         && clicked_pos.y <= transform.translation.y + height / 2.0
       {
-        emitter.send(HitEvent(target.clone()));
+        hit_emitter.send(HitEvent(target.clone()));
         cmd.entity(entity).despawn();
+      } else {
+        miss_emitter.send_default();
       }
     }
   }

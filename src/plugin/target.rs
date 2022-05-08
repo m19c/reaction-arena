@@ -119,17 +119,21 @@ fn spawn_listener(
     let sprite_size: f32 = 50.0;
 
     let mut rng = thread_rng();
-    let x = rng.gen_range(
-      -primary_window.width() / 2.0 + sprite_size..primary_window.width() / 2.0 - sprite_size,
-    );
-    let y = rng.gen_range(
-      -primary_window.height() / 2.0 + sprite_size..primary_window.height() / 2.0 - sprite_size,
-    );
 
     cmd
       .spawn_bundle(SpriteBundle {
         transform: Transform {
-          translation: Vec3::new(x, y, 0.0),
+          translation: Vec3::new(
+            rng.gen_range(
+              -primary_window.width() / 2.0 + sprite_size
+                ..primary_window.width() / 2.0 - sprite_size,
+            ),
+            rng.gen_range(
+              -primary_window.height() / 2.0 + sprite_size
+                ..primary_window.height() / 2.0 - sprite_size,
+            ),
+            0.0,
+          ),
           ..default()
         },
         sprite: Sprite {
